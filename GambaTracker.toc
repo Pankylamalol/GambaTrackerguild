@@ -1,0 +1,8 @@
+## Interface: 120001
+## Title: Gamba Chlívák
+## Notes: test
+## Author: Ty 😄
+## Version: 2.0
+## SavedVariables: GambaTrackerDB
+
+GambaTracker.lua
