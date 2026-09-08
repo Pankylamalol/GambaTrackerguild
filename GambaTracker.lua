@@ -176,8 +176,8 @@ local playerStats = {
 
 local hallRecord = GambaTrackerDB.record or {}
 GambaTrackerDB.record = hallRecord
-if hallRecord.amount == nil then
-    hallRecord.amount = 0
+if type(hallRecord.players) ~= "table" then
+    hallRecord.players = {}
 end
 
 local hallAllTimeRecord = GambaTrackerDB.allTimeRecord or {}
@@ -225,8 +225,8 @@ local function ensureSavedStats()
     playerStats.RAID = GambaTrackerDB.stats.RAID
     playerStats.PARTY = GambaTrackerDB.stats.PARTY
     hallRecord = GambaTrackerDB.record
-    if hallRecord.amount == nil then
-        hallRecord.amount = 0
+    if type(hallRecord.players) ~= "table" then
+        hallRecord.players = {}
     end
     hallAllTimeRecord = GambaTrackerDB.allTimeRecord
     if hallAllTimeRecord.amount == nil then
@@ -487,13 +487,24 @@ local function refreshHallStatsText()
 
     local today = date("%Y-%m-%d")
     if hallRecord.date ~= today then
-        hallRecord.name = nil
-        hallRecord.amount = 0
         hallRecord.date = today
+        hallRecord.players = {}
     end
 
-    if hallRecord.name and (hallRecord.amount or 0) > 0 then
-        hallRecordText:SetText("Chlivak dne: " .. getClassColoredName(hallRecord.name) .. " (-" .. hallRecord.amount .. ")")
+    local championName, championAmount, championWon
+    for playerName, entry in pairs(hallRecord.players or {}) do
+        local net = (entry.won or 0) - (entry.lost or 0)
+        local magnitude = math.abs(net)
+        if magnitude > 0 and (not championAmount or magnitude > championAmount) then
+            championAmount = magnitude
+            championName = playerName
+            championWon = net > 0
+        end
+    end
+
+    if championName then
+        local sign = championWon and "+" or "-"
+        hallRecordText:SetText("Chlivak dne: " .. getClassColoredName(championName) .. " (" .. sign .. championAmount .. ")")
     else
         hallRecordText:SetText("Chlivak dne: -")
     end
@@ -515,8 +526,7 @@ local function clearHallStats()
         RAID = {},
         PARTY = {}
     }
-    hallRecord.name = nil
-    hallRecord.amount = 0
+    hallRecord.players = {}
     hallRecord.date = date("%Y-%m-%d")
     refreshHallStatsText()
 end
@@ -546,11 +556,19 @@ local function recordRoundStats(loserName, winnerName, diff)
     winnerStats.won = winnerStats.won + diff
     winnerStats.wins = winnerStats.wins + 1
 
-    if diff > (hallRecord.amount or 0) then
-        hallRecord.name = loserName
-        hallRecord.amount = diff
-        hallRecord.date = date("%Y-%m-%d")
+    local today = date("%Y-%m-%d")
+    if hallRecord.date ~= today then
+        hallRecord.date = today
+        hallRecord.players = {}
     end
+
+    local loserEntry = hallRecord.players[loserName] or {won = 0, lost = 0}
+    loserEntry.lost = (loserEntry.lost or 0) + diff
+    hallRecord.players[loserName] = loserEntry
+
+    local winnerEntry = hallRecord.players[winnerName] or {won = 0, lost = 0}
+    winnerEntry.won = (winnerEntry.won or 0) + diff
+    hallRecord.players[winnerName] = winnerEntry
 
     if diff > (hallAllTimeRecord.amount or 0) then
         hallAllTimeRecord.winner = winnerName
