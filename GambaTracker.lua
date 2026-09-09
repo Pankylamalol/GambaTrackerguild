@@ -585,7 +585,33 @@ local function exportHallStatsToChat()
     local partyWinners, partyLosers = buildStatsLists(playerStats.PARTY)
     local channel = currentGameChannel or getDefaultChannel()
 
-    if #raidWinners == 0 and #raidLosers == 0 and #partyWinners == 0 and #partyLosers == 0 then
+    local today = date("%Y-%m-%d")
+    if hallRecord.date ~= today then
+        hallRecord.date = today
+        hallRecord.players = {}
+    end
+
+    local championName, championAmount, championWon
+    for playerName, entry in pairs(hallRecord.players or {}) do
+        local net = (entry.won or 0) - (entry.lost or 0)
+        local magnitude = math.abs(net)
+        if magnitude > 0 and (not championAmount or magnitude > championAmount) then
+            championAmount = magnitude
+            championName = playerName
+            championWon = net > 0
+        end
+    end
+
+    local hasRegularStats = #raidWinners > 0 or #raidLosers > 0 or #partyWinners > 0 or #partyLosers > 0
+    local hasAllTimeRecord = hallAllTimeRecord.loser and hallAllTimeRecord.winner and (hallAllTimeRecord.amount or 0) > 0
+
+    if not hasRegularStats and hasAllTimeRecord then
+        SendChatMessage("Hall of Shame statistika:", channel)
+        SendChatMessage("Absolutni rekord: " .. hallAllTimeRecord.loser .. " dal " .. hallAllTimeRecord.winner .. " " .. hallAllTimeRecord.amount .. " goldu", channel)
+        return
+    end
+
+    if not hasRegularStats then
         SendChatMessage("Hall of Shame: zatim bez statistik.", channel)
         return
     end
@@ -626,6 +652,19 @@ local function exportHallStatsToChat()
         for i, item in ipairs(partyLosers) do
             SendChatMessage(i .. ". " .. item.name .. " -" .. item.amount .. " (" .. item.rounds .. "x)", channel)
         end
+    end
+
+    if championName then
+        local sign = championWon and "+" or "-"
+        SendChatMessage("Chlivak dne: " .. championName .. " (" .. sign .. championAmount .. ")", channel)
+    else
+        SendChatMessage("Chlivak dne: -", channel)
+    end
+
+    if hallAllTimeRecord.loser and hallAllTimeRecord.winner and (hallAllTimeRecord.amount or 0) > 0 then
+        SendChatMessage("Absolutni rekord: " .. hallAllTimeRecord.loser .. " dal " .. hallAllTimeRecord.winner .. " " .. hallAllTimeRecord.amount .. " goldu", channel)
+    else
+        SendChatMessage("Absolutni rekord: -", channel)
     end
 end
 
