@@ -744,78 +744,31 @@ local function removePlayerFromList(playerName)
     refreshPlayersListText()
 end
 
-local function handleJoinLeaveMessage(message, sender)
-    local command = string.match(tostring(message or ""), "^%s*(.-)%s*$")
-    if command ~= "1" and command ~= "-1" then
+local function handleJoinLeaveMessage(message, sender, event)
+    if not isJoinOpen or not sender or sender == "" then
         return
     end
 
-    if not isJoinOpen then
+    local channelEvents = {
+        SAY = { CHAT_MSG_SAY = true },
+        PARTY = { CHAT_MSG_PARTY = true, CHAT_MSG_PARTY_LEADER = true },
+        RAID = { CHAT_MSG_RAID = true, CHAT_MSG_RAID_LEADER = true },
+        INSTANCE_CHAT = { CHAT_MSG_INSTANCE_CHAT = true, CHAT_MSG_INSTANCE_CHAT_LEADER = true }
+    }
+    if not currentGameChannel or not channelEvents[currentGameChannel] or not channelEvents[currentGameChannel][event] then
         return
     end
 
-    local playerName = normalizePlayerName(sender)
+    local command = tostring(message or ""):match("^%s*(.-)%s*$")
     if command == "1" then
-        addPlayerToList(playerName)
-    else
-        removePlayerFromList(playerName)
+        addPlayerToList(sender)
+    elseif command == "-1" then
+        removePlayerFromList(sender)
     end
 end
 
 local function handleSystemRollMessage(message)
-    if not isRollingStarted then
-        return
-    end
-
-    local msg = tostring(message or "")
-    local rollerName, rollValue = string.match(msg, "^([^%s]+) rolls (%d+) %(%d+%-%d+%)$")
-    if not rollerName or not rollValue then
-        return
-    end
-
-    local playerName = normalizePlayerName(rollerName)
-    if not joinedPlayersLookup[playerName] then
-        return
-    end
-
-    if joinedPlayersRolls[playerName] then
-        return
-    end
-
-    joinedPlayersRolls[playerName] = tonumber(rollValue)
-    refreshPlayersListText()
-
-    if roundResultAnnounced or #joinedPlayers == 0 then
-        return
-    end
-
-    local minName
-    local minRoll
-    local maxName
-    local maxRoll
-
-    for _, name in ipairs(joinedPlayers) do
-        local playerRoll = joinedPlayersRolls[name]
-        if not playerRoll then
-            return
-        end
-
-        if not minRoll or playerRoll < minRoll then
-            minRoll = playerRoll
-            minName = name
-        end
-
-        if not maxRoll or playerRoll > maxRoll then
-            maxRoll = playerRoll
-            maxName = name
-        end
-    end
-
-    local diff = maxRoll - minRoll
-    local channel = currentGameChannel or getDefaultChannel()
-    SendChatMessage(string.format("Kostky rozhodly! %s dluzis %d goldu hraci %s. Zaplat a koukej se u toho usmivat :)", minName, diff, maxName), channel)
-    recordRoundStats(minName, maxName, diff)
-    roundResultAnnounced = true
+    return
 end
 
 local letsButtons = {}
@@ -1111,7 +1064,7 @@ addonFrame:SetScript("OnEvent", function(self, event, ...)
         or event == "CHAT_MSG_INSTANCE_CHAT"
         or event == "CHAT_MSG_INSTANCE_CHAT_LEADER" then
         local message, sender = ...
-        handleJoinLeaveMessage(message, sender)
+        handleJoinLeaveMessage(message, sender, event)
     elseif event == "CHAT_MSG_SYSTEM" then
         local message = ...
         handleSystemRollMessage(message)
