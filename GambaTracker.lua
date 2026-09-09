@@ -668,14 +668,6 @@ local function exportHallStatsToChat()
     end
 end
 
-local function normalizePlayerName(sender)
-    local senderText = tostring(sender or "")
-    local shortName = string.match(senderText, "^[^-]+") or ""
-    shortName = string.gsub(shortName, "^%s+", "")
-    shortName = string.gsub(shortName, "%s+$", "")
-    return shortName
-end
-
 local function resetRoundState()
     currentGameChannel = nil
     isSelfJoined = false
@@ -702,6 +694,14 @@ StaticPopupDialogs["GAMBA_TRACKER_CONFIRM_RESET"] = {
     hideOnEscape = true,
     preferredIndex = 3
 }
+
+local function normalizePlayerName(sender)
+    local senderText = tostring(sender or "")
+    local shortName = string.match(senderText, "^[^-]+") or ""
+    shortName = string.gsub(shortName, "^%s+", "")
+    shortName = string.gsub(shortName, "%s+$", "")
+    return shortName
+end
 
 local function allRegisteredPlayersHaveRoll()
     if #joinedPlayers == 0 then
@@ -760,15 +760,58 @@ local function handleJoinLeaveMessage(message, sender, event)
     end
 
     local command = tostring(message or ""):match("^%s*(.-)%s*$")
+    local playerName = normalizePlayerName(sender)
     if command == "1" then
-        addPlayerToList(sender)
+        addPlayerToList(playerName)
     elseif command == "-1" then
-        removePlayerFromList(sender)
+        removePlayerFromList(playerName)
     end
 end
 
 local function handleSystemRollMessage(message)
-    return
+    if not isRollingStarted or roundResultAnnounced then
+        return
+    end
+
+    local playerName, rolledValue = tostring(message or ""):match("^(.-) .- (%d+) %(%d+%-%d+%)$")
+    playerName = normalizePlayerName(playerName)
+    rolledValue = tonumber(rolledValue)
+    if not playerName or playerName == "" or not rolledValue or not joinedPlayersLookup[playerName] then
+        return
+    end
+
+    joinedPlayersRolls[playerName] = rolledValue
+    refreshPlayersListText()
+
+    if not allRegisteredPlayersHaveRoll() then
+        return
+    end
+
+    local winnerName, loserName
+    local highestRoll, lowestRoll
+    for _, name in ipairs(joinedPlayers) do
+        local roll = joinedPlayersRolls[name]
+        if not highestRoll or roll > highestRoll then
+            winnerName = name
+            highestRoll = roll
+        end
+        if not lowestRoll or roll < lowestRoll then
+            loserName = name
+            lowestRoll = roll
+        end
+    end
+
+    if highestRoll == lowestRoll then
+        SendChatMessage("Remiza! Vsichni hodte znovu.", currentGameChannel)
+        joinedPlayersRolls = {}
+        refreshPlayersListText()
+        return
+    end
+
+    roundResultAnnounced = true
+    local difference = highestRoll - lowestRoll
+    recordRoundStats(loserName, winnerName, difference)
+    SendChatMessage(winnerName .. " vyhral nad " .. loserName .. " o " .. difference .. ".", currentGameChannel)
 end
 
 local letsButtons = {}
