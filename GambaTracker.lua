@@ -801,9 +801,35 @@ local function handleSystemRollMessage(message)
         end
     end
 
-    if highestRoll == lowestRoll then
-        SendChatMessage("Remiza! Vsichni hodte znovu.", currentGameChannel)
-        joinedPlayersRolls = {}
+    local highestRollTies = {}
+    local lowestRollTies = {}
+    for _, name in ipairs(joinedPlayers) do
+        if joinedPlayersRolls[name] == highestRoll then
+            highestRollTies[#highestRollTies + 1] = name
+        end
+        if joinedPlayersRolls[name] == lowestRoll then
+            lowestRollTies[#lowestRollTies + 1] = name
+        end
+    end
+
+    if #highestRollTies > 1 or #lowestRollTies > 1 then
+        local rerollGroups = {}
+
+        local function addRerollPlayers(players, label)
+            for _, name in ipairs(players) do
+                joinedPlayersRolls[name] = nil
+            end
+            rerollGroups[#rerollGroups + 1] = label .. ": " .. table.concat(players, ", ")
+        end
+
+        if #highestRollTies > 1 then
+            addRerollPlayers(highestRollTies, "nejvyssi roll")
+        end
+        if #lowestRollTies > 1 then
+            addRerollPlayers(lowestRollTies, "nejnizsi roll")
+        end
+
+        SendChatMessage("Remiza, rollujte znovu pouze: " .. table.concat(rerollGroups, " | "), currentGameChannel)
         refreshPlayersListText()
         return
     end
