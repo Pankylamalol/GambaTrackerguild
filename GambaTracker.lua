@@ -44,23 +44,11 @@ content:SetPoint("BOTTOMRIGHT", -30, 15)
 
 local activeTab = "lets"
 
-local hallTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-hallTitle:SetPoint("TOPLEFT", 10, -10)
-hallTitle:SetText("Hall of Shame")
-hallTitle:SetTextColor(1, 0.4, 0.4)
-hallTitle:Hide()
-
-local hallWinnersTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-hallWinnersTitle:SetPoint("TOPLEFT", 14, -76)
-hallWinnersTitle:SetText("Winners")
-hallWinnersTitle:SetTextColor(0.3, 0.9, 0.3)
-hallWinnersTitle:Hide()
-
-local hallLosersTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-hallLosersTitle:SetPoint("TOPLEFT", 240, -76)
-hallLosersTitle:SetText("Losers")
-hallLosersTitle:SetTextColor(1, 0.45, 0.45)
-hallLosersTitle:Hide()
+local hallBalanceTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+hallBalanceTitle:SetPoint("TOPLEFT", 14, -104)
+hallBalanceTitle:SetText("Balance")
+hallBalanceTitle:SetTextColor(1, 0.85, 0.2)
+hallBalanceTitle:Hide()
 
 local hallRecordText = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 hallRecordText:SetPoint("TOPLEFT", 14, -34)
@@ -75,7 +63,7 @@ hallAllTimeRecordText:SetTextColor(1, 0.6, 0.1)
 hallAllTimeRecordText:Hide()
 
 local hallScrollFrame = CreateFrame("ScrollFrame", "GambaHallScrollFrame", content, "UIPanelScrollFrameTemplate")
-hallScrollFrame:SetPoint("TOPLEFT", 10, -96)
+hallScrollFrame:SetPoint("TOPLEFT", 10, -124)
 hallScrollFrame:SetPoint("BOTTOMRIGHT", -28, 10)
 hallScrollFrame:EnableMouseWheel(true)
 hallScrollFrame:SetScript("OnMouseWheel", function(self, delta)
@@ -89,25 +77,12 @@ local hallScrollChild = CreateFrame("Frame", nil, hallScrollFrame)
 hallScrollChild:SetSize(1, 1)
 hallScrollFrame:SetScrollChild(hallScrollChild)
 
-local hallWinnersList = hallScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-hallWinnersList:SetPoint("TOPLEFT", 4, 0)
-hallWinnersList:SetWidth(200)
-hallWinnersList:SetJustifyH("LEFT")
-hallWinnersList:SetJustifyV("TOP")
-hallWinnersList:SetText("-")
-
-local hallLosersList = hallScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-hallLosersList:SetPoint("TOPLEFT", 220, 0)
-hallLosersList:SetWidth(200)
-hallLosersList:SetJustifyH("LEFT")
-hallLosersList:SetJustifyV("TOP")
-hallLosersList:SetText("-")
-
-local letsTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-letsTitle:SetPoint("TOPLEFT", 10, -10)
-letsTitle:SetText("Lets Play")
-letsTitle:SetTextColor(0.3, 0.9, 0.3)
-letsTitle:Hide()
+local hallBalanceList = hallScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+hallBalanceList:SetPoint("TOPLEFT", 4, 0)
+hallBalanceList:SetWidth(420)
+hallBalanceList:SetJustifyH("LEFT")
+hallBalanceList:SetJustifyV("TOP")
+hallBalanceList:SetText("-")
 
 local letsNumberLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 letsNumberLabel:SetPoint("TOPLEFT", 14, -162)
@@ -348,43 +323,32 @@ local function getOrCreatePlayerStats(bucketKey, playerName)
     return bucket[playerName]
 end
 
-local function buildStatsLists(statsTable)
-    local winners = {}
-    local losers = {}
+local function buildBalanceList(statsTable)
+    local balance = {}
 
     for playerName, stats in pairs(statsTable) do
-        if stats.won > 0 or stats.wins > 0 then
-            winners[#winners + 1] = {
+        local won = stats.won or 0
+        local lost = stats.lost or 0
+        local wins = stats.wins or 0
+        local losses = stats.losses or 0
+        if won > 0 or lost > 0 or wins > 0 or losses > 0 then
+            balance[#balance + 1] = {
                 name = playerName,
-                amount = stats.won,
-                rounds = stats.wins
-            }
-        end
-
-        if stats.lost > 0 or stats.losses > 0 then
-            losers[#losers + 1] = {
-                name = playerName,
-                amount = stats.lost,
-                rounds = stats.losses
+                amount = won - lost,
+                wins = wins,
+                losses = losses
             }
         end
     end
 
-    table.sort(winners, function(a, b)
+    table.sort(balance, function(a, b)
         if a.amount == b.amount then
             return a.name < b.name
         end
         return a.amount > b.amount
     end)
 
-    table.sort(losers, function(a, b)
-        if a.amount == b.amount then
-            return a.name < b.name
-        end
-        return a.amount > b.amount
-    end)
-
-    return winners, losers
+    return balance
 end
 
 local function refreshPlayersListText()
@@ -442,48 +406,28 @@ local function saveHallStats()
 end
 
 local function refreshHallStatsText()
-    local raidWinners, raidLosers = buildStatsLists(playerStats.RAID)
-    local partyWinners, partyLosers = buildStatsLists(playerStats.PARTY)
+    local raidBalance = buildBalanceList(playerStats.RAID)
+    local partyBalance = buildBalanceList(playerStats.PARTY)
 
-    local winnerLines = {}
-    winnerLines[#winnerLines + 1] = "[Raid]"
-    if #raidWinners == 0 then
-        winnerLines[#winnerLines + 1] = "-"
+    local balanceLines = {}
+    balanceLines[#balanceLines + 1] = "[Raid]"
+    if #raidBalance == 0 then
+        balanceLines[#balanceLines + 1] = "-"
     else
-        for i, item in ipairs(raidWinners) do
-            winnerLines[#winnerLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " +" .. item.amount .. " (" .. item.rounds .. "x)"
+        for i, item in ipairs(raidBalance) do
+            balanceLines[#balanceLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " " .. string.format("%+d", item.amount) .. " (" .. item.wins .. "W / " .. item.losses .. "L)"
         end
     end
-    winnerLines[#winnerLines + 1] = ""
-    winnerLines[#winnerLines + 1] = "[Party]"
-    if #partyWinners == 0 then
-        winnerLines[#winnerLines + 1] = "-"
+    balanceLines[#balanceLines + 1] = ""
+    balanceLines[#balanceLines + 1] = "[Party]"
+    if #partyBalance == 0 then
+        balanceLines[#balanceLines + 1] = "-"
     else
-        for i, item in ipairs(partyWinners) do
-            winnerLines[#winnerLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " +" .. item.amount .. " (" .. item.rounds .. "x)"
+        for i, item in ipairs(partyBalance) do
+            balanceLines[#balanceLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " " .. string.format("%+d", item.amount) .. " (" .. item.wins .. "W / " .. item.losses .. "L)"
         end
     end
-    hallWinnersList:SetText(table.concat(winnerLines, "\n"))
-
-    local loserLines = {}
-    loserLines[#loserLines + 1] = "[Raid]"
-    if #raidLosers == 0 then
-        loserLines[#loserLines + 1] = "-"
-    else
-        for i, item in ipairs(raidLosers) do
-            loserLines[#loserLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " -" .. item.amount .. " (" .. item.rounds .. "x)"
-        end
-    end
-    loserLines[#loserLines + 1] = ""
-    loserLines[#loserLines + 1] = "[Party]"
-    if #partyLosers == 0 then
-        loserLines[#loserLines + 1] = "-"
-    else
-        for i, item in ipairs(partyLosers) do
-            loserLines[#loserLines + 1] = i .. ". " .. getClassColoredName(item.name) .. " -" .. item.amount .. " (" .. item.rounds .. "x)"
-        end
-    end
-    hallLosersList:SetText(table.concat(loserLines, "\n"))
+    hallBalanceList:SetText(table.concat(balanceLines, "\n"))
 
     local today = date("%Y-%m-%d")
     if hallRecord.date ~= today then
@@ -515,7 +459,7 @@ local function refreshHallStatsText()
         hallAllTimeRecordText:SetText("Absolutni rekord: -")
     end
 
-    local hallContentHeight = math.max(hallWinnersList:GetStringHeight(), hallLosersList:GetStringHeight(), hallScrollFrame:GetHeight())
+    local hallContentHeight = math.max(hallBalanceList:GetStringHeight(), hallScrollFrame:GetHeight())
     hallScrollChild:SetSize(hallScrollFrame:GetWidth(), hallContentHeight)
 end
 
@@ -580,10 +524,9 @@ local function recordRoundStats(loserName, winnerName, diff)
     refreshHallStatsText()
 end
 
-local function exportHallStatsToChat()
-    local raidWinners, raidLosers = buildStatsLists(playerStats.RAID)
-    local partyWinners, partyLosers = buildStatsLists(playerStats.PARTY)
-    local channel = currentGameChannel or getDefaultChannel()
+local function exportHallStatsToChat(channel)
+    local bucketKey = getStatsBucketKey(channel)
+    local balance = buildBalanceList(playerStats[bucketKey])
 
     local today = date("%Y-%m-%d")
     if hallRecord.date ~= today then
@@ -602,55 +545,14 @@ local function exportHallStatsToChat()
         end
     end
 
-    local hasRegularStats = #raidWinners > 0 or #raidLosers > 0 or #partyWinners > 0 or #partyLosers > 0
-    local hasAllTimeRecord = hallAllTimeRecord.loser and hallAllTimeRecord.winner and (hallAllTimeRecord.amount or 0) > 0
-
-    if not hasRegularStats and hasAllTimeRecord then
-        SendChatMessage("Hall of Shame statistika:", channel)
-        SendChatMessage("Absolutni rekord: " .. hallAllTimeRecord.loser .. " dal " .. hallAllTimeRecord.winner .. " " .. hallAllTimeRecord.amount .. " goldu", channel)
-        return
-    end
-
-    if not hasRegularStats then
-        SendChatMessage("Hall of Shame: zatim bez statistik.", channel)
-        return
-    end
-
     SendChatMessage("Hall of Shame statistika:", channel)
 
-    SendChatMessage("RAID - Winners:", channel)
-    if #raidWinners == 0 then
+    SendChatMessage(bucketKey .. " - Balance:", channel)
+    if #balance == 0 then
         SendChatMessage("-", channel)
     else
-        for i, item in ipairs(raidWinners) do
-            SendChatMessage(i .. ". " .. item.name .. " +" .. item.amount .. " (" .. item.rounds .. "x)", channel)
-        end
-    end
-
-    SendChatMessage("RAID - Losers:", channel)
-    if #raidLosers == 0 then
-        SendChatMessage("-", channel)
-    else
-        for i, item in ipairs(raidLosers) do
-            SendChatMessage(i .. ". " .. item.name .. " -" .. item.amount .. " (" .. item.rounds .. "x)", channel)
-        end
-    end
-
-    SendChatMessage("PARTY - Winners:", channel)
-    if #partyWinners == 0 then
-        SendChatMessage("-", channel)
-    else
-        for i, item in ipairs(partyWinners) do
-            SendChatMessage(i .. ". " .. item.name .. " +" .. item.amount .. " (" .. item.rounds .. "x)", channel)
-        end
-    end
-
-    SendChatMessage("PARTY - Losers:", channel)
-    if #partyLosers == 0 then
-        SendChatMessage("-", channel)
-    else
-        for i, item in ipairs(partyLosers) do
-            SendChatMessage(i .. ". " .. item.name .. " -" .. item.amount .. " (" .. item.rounds .. "x)", channel)
+        for i, item in ipairs(balance) do
+            SendChatMessage(i .. ". " .. item.name .. " " .. string.format("%+d", item.amount) .. " (" .. item.wins .. "W / " .. item.losses .. "L)", channel)
         end
     end
 
@@ -977,8 +879,62 @@ hallExportButtonFrame:SetPoint("TOPRIGHT", -18, -10)
 hallExportButtonFrame:SetText("Export Stats")
 hallExportButtonFrame:Hide()
 styleButton(hallExportButtonFrame)
+local hallExportChannel = "PARTY"
+local hallExportChannelButtons = {}
+
+local function refreshHallExportChannelButtons()
+    for channel, button in pairs(hallExportChannelButtons) do
+        if channel == hallExportChannel then
+            button:SetBackdropColor(0.35, 0.1, 0.04, 1)
+            button:SetBackdropBorderColor(1, 0.85, 0.2, 1)
+        else
+            button:SetBackdropColor(0.08, 0.05, 0.04, 1)
+            button:SetBackdropBorderColor(0.9, 0.15, 0.1, 1)
+        end
+    end
+end
+
+local function isHallExportChannelAvailable(channel)
+    if channel == "RAID" then
+        return IsInRaid()
+    elseif channel == "PARTY" then
+        return IsInGroup() and not IsInRaid()
+    elseif channel == "GUILD" then
+        return GetGuildInfo("player") ~= nil
+    end
+    return false
+end
+
+local hallExportChannels = {
+    {key = "PARTY", text = "Party"},
+    {key = "RAID", text = "Raid"},
+    {key = "GUILD", text = "Guild"}
+}
+
+for index, channelInfo in ipairs(hallExportChannels) do
+    local channelKey = channelInfo.key
+    local button = CreateFrame("Button", nil, content, "BackdropTemplate")
+    button:SetSize(78, 22)
+    button:SetPoint("TOPRIGHT", -18 - (index - 1) * 82, -68)
+    button:SetText(channelInfo.text)
+    button:Hide()
+    styleButton(button)
+    button:SetScript("OnClick", function()
+        hallExportChannel = channelKey
+        refreshHallExportChannelButtons()
+    end)
+    hallExportChannelButtons[channelKey] = button
+end
+refreshHallExportChannelButtons()
+
 hallExportButtonFrame:SetScript("OnClick", function()
-    exportHallStatsToChat()
+    if not isHallExportChannelAvailable(hallExportChannel) then
+        if UIErrorsFrame then
+            UIErrorsFrame:AddMessage("Export nelze odeslat do " .. string.lower(hallExportChannel) .. ".", 1, 0.2, 0.2)
+        end
+        return
+    end
+    exportHallStatsToChat(hallExportChannel)
 end)
 
 local hallClearButtonFrame = CreateFrame("Button", nil, content, "BackdropTemplate")
@@ -1007,16 +963,16 @@ end
 
 local function render()
     if activeTab == "hall" then
-        hallTitle:Show()
-        hallWinnersTitle:Show()
-        hallLosersTitle:Show()
+        hallBalanceTitle:Show()
         hallRecordText:Show()
         hallAllTimeRecordText:Show()
         hallScrollFrame:Show()
         hallExportButtonFrame:Show()
         hallClearButtonFrame:Show()
+        for _, button in pairs(hallExportChannelButtons) do
+            button:Show()
+        end
 
-        letsTitle:Hide()
         letsNumberLabel:Hide()
         letsNumberInput:Hide()
         letsPlayersTitle:Hide()
@@ -1028,16 +984,16 @@ local function render()
         return
     end
 
-    hallTitle:Hide()
-    hallWinnersTitle:Hide()
-    hallLosersTitle:Hide()
+    hallBalanceTitle:Hide()
     hallRecordText:Hide()
     hallAllTimeRecordText:Hide()
     hallScrollFrame:Hide()
     hallExportButtonFrame:Hide()
     hallClearButtonFrame:Hide()
+    for _, button in pairs(hallExportChannelButtons) do
+        button:Hide()
+    end
 
-    letsTitle:Show()
     letsNumberLabel:Show()
     letsNumberInput:Show()
     letsPlayersTitle:Show()
