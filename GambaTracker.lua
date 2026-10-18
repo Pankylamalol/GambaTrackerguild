@@ -355,12 +355,36 @@ local function refreshPlayersListText()
     if #joinedPlayers == 0 then
         letsPlayersList:SetText("-")
     else
+        local playersToDisplay = {}
+        for joinIndex, playerName in ipairs(joinedPlayers) do
+            playersToDisplay[#playersToDisplay + 1] = {
+                name = playerName,
+                roll = joinedPlayersRolls[playerName],
+                joinIndex = joinIndex
+            }
+        end
+
+        table.sort(playersToDisplay, function(a, b)
+            if a.roll and b.roll then
+                if a.roll == b.roll then
+                    return a.joinIndex < b.joinIndex
+                end
+                return a.roll > b.roll
+            end
+            if a.roll then
+                return true
+            end
+            if b.roll then
+                return false
+            end
+            return a.joinIndex < b.joinIndex
+        end)
+
         local lines = {}
-        for i, playerName in ipairs(joinedPlayers) do
-            local rolledValue = joinedPlayersRolls[playerName]
-            local coloredName = getClassColoredName(playerName)
-            if rolledValue then
-                lines[#lines + 1] = i .. ". " .. coloredName .. " - " .. rolledValue
+        for i, player in ipairs(playersToDisplay) do
+            local coloredName = getClassColoredName(player.name)
+            if player.roll then
+                lines[#lines + 1] = i .. ". " .. coloredName .. " - " .. player.roll
             else
                 lines[#lines + 1] = i .. ". " .. coloredName
             end
